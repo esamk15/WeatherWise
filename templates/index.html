@@ -1,0 +1,731 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>WeatherWise - Personal Weather Application</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <header>
+
+        <h1>🌤️ WeatherWise</h1>
+
+        <p>Your Personal Weather Companion</p>
+
+    </header>
+
+
+    <!-- CITY SEARCH -->
+    <form method="POST" class="search-box" id="weatherForm">
+
+        <input
+            type="text"
+            name="city"
+            id="cityInput"
+            placeholder="Enter city name..."
+        >
+
+        <input
+            type="hidden"
+            name="latitude"
+            id="latitude"
+        >
+
+        <input
+            type="hidden"
+            name="longitude"
+            id="longitude"
+        >
+
+        <button type="submit">
+            Search Weather
+        </button>
+
+    </form>
+
+
+    <!-- GPS LOCATION BUTTON -->
+    <button
+        type="button"
+        class="location-button"
+        id="locationButton"
+        onclick="getLocation()">
+
+        📍 Use My Location
+
+    </button>
+
+    <p id="locationMessage" class="location-message"></p>
+
+
+    <!-- ERROR MESSAGE -->
+    {% if error %}
+
+        <p class="error">{{ error }}</p>
+
+    {% endif %}
+
+
+    <!-- ================================= -->
+    <!-- RECENT SEARCH HISTORY -->
+    <!-- ================================= -->
+
+    {% if history %}
+
+    <section class="history-section">
+
+        <h2>🕘 Recent Searches</h2>
+
+        <p class="section-subtitle">
+            Your recently searched cities
+        </p>
+
+        <div class="history-container">
+
+            {% for item in history %}
+
+            <form method="POST" class="history-form">
+
+                <input
+                    type="hidden"
+                    name="city"
+                    value="{{ item['city'] }}"
+                >
+
+                <button
+                    type="submit"
+                    class="history-button">
+
+                    <span class="history-city">
+                        📍 {{ item['city'] }}, {{ item['country'] }}
+                    </span>
+
+                    <span class="history-date">
+                        {{ item['searched_at'] }}
+                    </span>
+
+                </button>
+
+            </form>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+    {% endif %}
+
+
+    {% if weather %}
+
+
+    <!-- ================================= -->
+    <!-- CURRENT WEATHER -->
+    <!-- ================================= -->
+
+    <section class="weather-card">
+
+        <h2>
+            {{ weather.city }}, {{ weather.country }}
+        </h2>
+
+        <img
+            src="https://openweathermap.org/img/wn/{{ weather.icon }}@2x.png"
+            alt="Weather icon"
+        >
+
+        <h1 class="temperature">
+            {{ weather.temperature }}°C
+        </h1>
+
+        <h3 class="description">
+            {{ weather.description }}
+        </h3>
+
+
+        <!-- WEATHER DETAILS -->
+
+        <div class="details">
+
+            <div class="detail-box">
+
+                <h3>💧 Humidity</h3>
+
+                <p>{{ weather.humidity }}%</p>
+
+            </div>
+
+
+            <div class="detail-box">
+
+                <h3>💨 Wind Speed</h3>
+
+                <p>{{ weather.wind }} m/s</p>
+
+            </div>
+
+
+            <div class="detail-box">
+
+                <h3>🌡️ Pressure</h3>
+
+                <p>{{ weather.pressure }} hPa</p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- AIR QUALITY INDEX -->
+    <!-- ================================= -->
+
+    <section class="aqi-section">
+
+        <h2>🌿 Air Quality Index</h2>
+
+        {% if air_quality %}
+
+        <div class="aqi-card">
+
+            <div class="aqi-main {{ air_quality.color }}">
+
+                <p>Air Quality Index</p>
+
+                <h1>{{ air_quality.aqi }}</h1>
+
+                <h2>{{ air_quality.status }}</h2>
+
+            </div>
+
+
+            <h3 class="pollutant-heading">
+                Pollutant Levels
+            </h3>
+
+
+            <!-- POLLUTANT GRID -->
+
+            <div class="pollutant-grid">
+
+                <div class="pollutant-box">
+
+                    <h3>PM2.5</h3>
+
+                    <p>{{ air_quality.pm2_5 }} µg/m³</p>
+
+                </div>
+
+
+                <div class="pollutant-box">
+
+                    <h3>PM10</h3>
+
+                    <p>{{ air_quality.pm10 }} µg/m³</p>
+
+                </div>
+
+
+                <div class="pollutant-box">
+
+                    <h3>CO</h3>
+
+                    <p>{{ air_quality.co }} µg/m³</p>
+
+                </div>
+
+
+                <div class="pollutant-box">
+
+                    <h3>NO₂</h3>
+
+                    <p>{{ air_quality.no2 }} µg/m³</p>
+
+                </div>
+
+
+                <div class="pollutant-box">
+
+                    <h3>O₃</h3>
+
+                    <p>{{ air_quality.o3 }} µg/m³</p>
+
+                </div>
+
+            </div>
+
+
+            <p class="aqi-note">
+                OpenWeather AQI scale: 1 = Good, 5 = Very Poor.
+            </p>
+
+        </div>
+
+        {% else %}
+
+        <p class="aqi-unavailable">
+            Air quality information is currently unavailable.
+        </p>
+
+        {% endif %}
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- HOURLY WEATHER FORECAST -->
+    <!-- ================================= -->
+
+    {% if hourly %}
+
+    <section class="hourly-section">
+
+        <h2>🕒 Next 24 Hours</h2>
+
+        <p class="section-subtitle">
+            Weather forecast at 3-hour intervals
+        </p>
+
+
+        <div class="hourly-container">
+
+            {% for hour in hourly %}
+
+            <div class="hourly-card">
+
+                <h3>{{ hour.time }}</h3>
+
+                <img
+                    src="https://openweathermap.org/img/wn/{{ hour.icon }}@2x.png"
+                    alt="{{ hour.description }}"
+                >
+
+                <h2>{{ hour.temperature }}°C</h2>
+
+                <p class="hour-description">
+                    {{ hour.description }}
+                </p>
+
+
+                <div class="hour-details">
+
+                    <p>💧 {{ hour.humidity }}%</p>
+
+                    <p>💨 {{ hour.wind }} m/s</p>
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- TEMPERATURE CHART -->
+    <!-- ================================= -->
+
+    <section class="chart-section">
+
+        <h2>📈 Temperature Trends</h2>
+
+        <p class="section-subtitle">
+            Temperature changes over the next 24 hours
+        </p>
+
+        <div class="chart-container">
+
+            <canvas id="temperatureChart"></canvas>
+
+        </div>
+
+    </section>
+
+    {% endif %}
+
+
+    <!-- ================================= -->
+    <!-- FIVE DAY FORECAST -->
+    <!-- ================================= -->
+
+    {% if forecast %}
+
+    <section class="forecast-section">
+
+        <h2>📅 5-Day Weather Forecast</h2>
+
+
+        <div class="forecast-container">
+
+            {% for day in forecast %}
+
+            <div class="forecast-card">
+
+                <h3>{{ day.day }}</h3>
+
+                <p class="forecast-date">
+                    {{ day.date }}
+                </p>
+
+                <img
+                    src="https://openweathermap.org/img/wn/{{ day.icon }}@2x.png"
+                    alt="{{ day.description }}"
+                >
+
+                <h2>{{ day.temperature }}°C</h2>
+
+                <p>{{ day.description }}</p>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+    {% endif %}
+
+    {% endif %}
+
+
+    <!-- ================================= -->
+    <!-- FOOTER -->
+    <!-- ================================= -->
+
+    <footer>
+
+        <p>
+            WeatherWise | Powered by OpenWeather API
+        </p>
+
+    </footer>
+
+</div>
+
+
+<!-- ================================= -->
+<!-- GPS LOCATION JAVASCRIPT -->
+<!-- ================================= -->
+
+<script>
+
+function getLocation() {
+
+    const message =
+        document.getElementById("locationMessage");
+
+    const button =
+        document.getElementById("locationButton");
+
+
+    if (!navigator.geolocation) {
+
+        message.innerText =
+            "Your browser does not support location detection.";
+
+        return;
+
+    }
+
+
+    message.innerText =
+        "Detecting your location...";
+
+    button.disabled = true;
+
+
+    navigator.geolocation.getCurrentPosition(
+
+        function(position) {
+
+            const latitude =
+                position.coords.latitude;
+
+            const longitude =
+                position.coords.longitude;
+
+
+            document.getElementById("latitude").value =
+                latitude;
+
+            document.getElementById("longitude").value =
+                longitude;
+
+            document.getElementById("cityInput").value = "";
+
+
+            message.innerText =
+                "Location found! Loading weather...";
+
+
+            document.getElementById("weatherForm").submit();
+
+        },
+
+
+        function(error) {
+
+            button.disabled = false;
+
+
+            if (error.code === error.PERMISSION_DENIED) {
+
+                message.innerText =
+                    "Location permission denied. Please allow access.";
+
+            }
+
+            else if (error.code === error.POSITION_UNAVAILABLE) {
+
+                message.innerText =
+                    "Your location is unavailable.";
+
+            }
+
+            else if (error.code === error.TIMEOUT) {
+
+                message.innerText =
+                    "Location request timed out. Try again.";
+
+            }
+
+            else {
+
+                message.innerText =
+                    "Unable to detect your location.";
+
+            }
+
+        },
+
+
+        {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 60000
+        }
+
+    );
+
+}
+
+
+// Clear GPS coordinates when manually searching
+
+document.getElementById("cityInput").addEventListener(
+
+    "input",
+
+    function() {
+
+        document.getElementById("latitude").value = "";
+
+        document.getElementById("longitude").value = "";
+
+    }
+
+);
+
+</script>
+
+
+<!-- ================================= -->
+<!-- TEMPERATURE CHART JAVASCRIPT -->
+<!-- ================================= -->
+
+{% if hourly %}
+
+<script>
+
+    // Get hourly forecast data from Flask
+
+    const hourlyData = {{ hourly | tojson }};
+
+
+    // Extract time labels
+
+    const labels = hourlyData.map(
+        hour => hour.time
+    );
+
+
+    // Extract temperatures
+
+    const temperatures = hourlyData.map(
+        hour => hour.temperature
+    );
+
+
+    // Get chart element
+
+    const ctx =
+        document.getElementById("temperatureChart");
+
+
+    // Create chart
+
+    if (ctx && typeof Chart !== "undefined") {
+
+        new Chart(ctx, {
+
+            type: "line",
+
+            data: {
+
+                labels: labels,
+
+                datasets: [{
+
+                    label: "Temperature (°C)",
+
+                    data: temperatures,
+
+                    borderColor: "#38bdf8",
+
+                    backgroundColor:
+                        "rgba(56, 189, 248, 0.15)",
+
+                    borderWidth: 3,
+
+                    fill: true,
+
+                    tension: 0.4,
+
+                    pointRadius: 5,
+
+                    pointHoverRadius: 8,
+
+                    pointBackgroundColor: "#7dd3fc"
+
+                }]
+
+            },
+
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                interaction: {
+
+                    intersect: false,
+
+                    mode: "index"
+
+                },
+
+
+                plugins: {
+
+                    legend: {
+
+                        labels: {
+
+                            color: "#ffffff"
+
+                        }
+
+                    }
+
+                },
+
+
+                scales: {
+
+                    x: {
+
+                        title: {
+
+                            display: true,
+
+                            text: "Time",
+
+                            color: "#ffffff"
+
+                        },
+
+                        ticks: {
+
+                            color: "#cbd5e1"
+
+                        },
+
+                        grid: {
+
+                            color:
+                                "rgba(255,255,255,0.08)"
+
+                        }
+
+                    },
+
+
+                    y: {
+
+                        title: {
+
+                            display: true,
+
+                            text: "Temperature (°C)",
+
+                            color: "#ffffff"
+
+                        },
+
+                        ticks: {
+
+                            color: "#cbd5e1"
+
+                        },
+
+                        grid: {
+
+                            color:
+                                "rgba(255,255,255,0.08)"
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
+
+</script>
+
+{% endif %}
+
+
+</body>
+
+</html>
